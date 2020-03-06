@@ -27,9 +27,11 @@ class SR_Calculator():
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
 
-        strehl_ratio = np.max(psf_ima_no_bgr)/np.max(psf_diffraction_limited)
+        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
+        strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
 
-        return par_psf_ima, par_psf_ima_no_bgr, psf_ima_no_bgr, psf_diffraction_limited
+        return par_psf_ima, par_psf_ima_no_bgr, psf_ima_no_bgr, psf_diffraction_limited, strehl_ratio
 
     def fit_2dGaussianForPsfImaCut(self, psf_ima_cut):
         '''
@@ -119,7 +121,7 @@ class SR_Calculator():
             psf_diff = psf diffraction limited
         '''
         epsilon = rmin / rmax
-        r = np.sqrt(x_coord**2 + y_coord**2)/(self._lambda * self._Fn_camera)
+        r = np.sqrt(x_coord**2 + y_coord**2)* self._pixelsize_camera/(self._lambda * self._Fn_camera)
         #r = np.linspace(1,20,500)
 
         psf = (1. / (1- epsilon**2)**2) * ((2. * special.jv(1, np.pi * r))/(np.pi * r) -
