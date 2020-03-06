@@ -20,7 +20,18 @@ class SR_Calculator():
         self._Fn_camera = 13.64
         self._lambda = 1300e-9
 
-    def XYCoordForPSFIma(self, psf_ima):
+    def principal_main(self, psf_ima_cut, psf_ima):
+        par_cut, par_psf_ima = self.fit_2dGaussianForPsfImaCut(psf_ima_cut)
+        xx, yy, rmin, rmax, final_bgr = self.bgr_calc(psf_ima, par_psf_ima)
+        psf_ima_no_bgr = psf_ima - final_bgr
+        par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
+        psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
+
+        strehl_ratio = np.max(psf_ima_no_bgr)/np.max(psf_diffraction_limited)
+
+        return par_psf_ima, par_psf_ima_no_bgr, psf_ima_no_bgr, psf_diffraction_limited
+
+    def fit_2dGaussianForPsfImaCut(self, psf_ima_cut):
         '''
         arg:
             psf_ima = camera frame containing the PSF
@@ -30,20 +41,29 @@ class SR_Calculator():
         return:
         '''
 
-        par = fit_2dgaussian(psf_ima)._parameters
+        par_cut = fit_2dgaussian(psf_ima_cut)._parameters
         #peak off-center in pixel units
-        fit_ampx = par[2] - np.int(par[2])
-        fit_ampy = par[3] - np.int(par[3])
-        constant = par[0]
+        fit_ampx = par_cut[2] - np.int(par_cut[2])
+        fit_ampy = par_cut[3] - np.int(par_cut[3])
+        constant = par_cut[0]
 
-        final_bgr = self.bgr_calc(psf_ima, par)
-        new_psf_ima = psf_ima - final_bgr
+        par_psf_ima = np.copy(par_cut)
+        par_psf_ima[2] = par_cut[2] + 300
+        par_psf_ima[3] = par_cut[3] + 140
+        return par_cut, par_psf_ima
+
+    def fit_2dGaussianForPsfImaWithoutBgr(self, new_psf_ima):
+        new_psf_ima = new_psf_ima[140:165,300:325]
+
         new_par = fit_2dgaussian(new_psf_ima)._parameters
-        new_fit_ampx = par[2] - np.int(par[2])
-        new_fit_ampy = par[3] - np.int(par[3])
-        new_constant = par[0]
+        new_fit_ampx = new_par[2] - np.int(new_par[2])
+        new_fit_ampy = new_par[3] - np.int(new_par[3])
+        new_constant = new_par[0]
 
-        return par, new_par
+        par_psf_ima_no_bgr = np.copy(new_par)
+        par_psf_ima_no_bgr[2] = new_par[2] + 300
+        par_psf_ima_no_bgr[3] = new_par[3] + 140
+        return par_psf_ima_no_bgr
 
     def bgr_calc(self, psf_ima, par, const_for_rmin=6):
         '''
@@ -62,7 +82,7 @@ class SR_Calculator():
 
         sigma = np.sqrt(par[4]*par[5])
         xx = np.tile(ima_x, (size[0], 1))-par[2]
-        yy = np.tile(ima_y.T, (size[1], 1))-par[3]
+        yy = np.tile(ima_y, (size[1], 1)).T-par[3]
         rr = np.sqrt(xx**2+yy**2)
 
         cc = np.array([10,10,10,10])
@@ -71,7 +91,7 @@ class SR_Calculator():
         rmin = np.ceil(const_for_rmin * sigma)
         dr = 3
         #rmax = ((rmax-rmin)/dr)*dr+rmin
-        nr = ((np.abs(rmax)-np.abs(rmin))/dr).astype(int)
+        nr = (np.abs(rmax-rmin)/dr).astype(int)
         vr = np.arange(np.abs(rmin), np.abs(rmax), step=dr)
 
         bgr = np.zeros(nr-1)
@@ -82,7 +102,7 @@ class SR_Calculator():
 
         #togliere i primi valori
         final_bgr = np.mean(bgr)
-        return final_bgr
+        return xx, yy, rmin, rmax, final_bgr
 
 
     def create_psf_diffraction_limited(self, x_coord, y_coord, rmin, rmax):
@@ -125,12 +145,13 @@ class SR_Calculator():
 
     def read_psf_file_fits(self):
         folder = '/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
-        file_name = 'ERIS_IRCAM_2020-01-24T11_31_30.299.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-24T11_31_30.299.fits'
+        file_name = 'ERIS_IRCAM_2020-01-24T15_17_12.503.fits'
         fits_file_name = os.path.join(folder, file_name)
         hduList = pyfits.open(fits_file_name)
-        ima= hduList[0].data
-        psf_ima = ima[140:165,300:325]
-        return psf_ima
+        psf_ima= hduList[0].data
+        psf_ima_cut = psf_ima[140:165,300:325]
+        return psf_ima_cut, psf_ima
 
 
 
