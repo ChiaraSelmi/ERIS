@@ -16,12 +16,14 @@ class SR_Calculator():
 
     def __init__(self):
         """The constructor """
+        self._pixelCut = 12
         self._pixelsize_camera = 15e-6
         self._Fn_camera = 13.64
         self._lambda = 1300e-9
 
-    def principal_main(self, psf_ima_cut, psf_ima):
-        par_cut, par_psf_ima = self.fit_2dGaussianForPsfImaCut(psf_ima_cut)
+    def principal_main(self, psf_ima):
+        psf_ima_cut, y_min, x_min = self.ima_cutter(psf_ima, self._pixelCut)
+        par_cut, par_psf_ima = self.fit_2dGaussianForPsfImaCut(psf_ima_cut, y_min, x_min)
         xx, yy, rmin, rmax, final_bgr = self.bgr_calc(psf_ima, par_psf_ima)
         psf_ima_no_bgr = psf_ima - final_bgr
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
@@ -33,14 +35,14 @@ class SR_Calculator():
 
         return par_psf_ima, par_psf_ima_no_bgr, psf_ima_no_bgr, psf_diffraction_limited, strehl_ratio
 
-    def fit_2dGaussianForPsfImaCut(self, psf_ima_cut):
+    def fit_2dGaussianForPsfImaCut(self, psf_ima_cut, y_min, x_min):
         '''
         arg:
-            psf_ima = camera frame containing the PSF
-            pixsize = [um] pixel size of camera at telescope focal plane
-            Fn = F-number at telescope focal plane
+            psf_ima_cut = camera frame containing the PSF 
 
         return:
+            par_cut = parameters of 2D Gaussian fit for cut image
+            par_psf_ima = parameters of 2D Gaussian fit for total image
         '''
 
         par_cut = fit_2dgaussian(psf_ima_cut)._parameters
@@ -50,12 +52,13 @@ class SR_Calculator():
         constant = par_cut[0]
 
         par_psf_ima = np.copy(par_cut)
-        par_psf_ima[2] = par_cut[2] + 300
-        par_psf_ima[3] = par_cut[3] + 140
+        par_psf_ima[2] = par_cut[2] + x_min #300
+        par_psf_ima[3] = par_cut[3] + y_min #140
         return par_cut, par_psf_ima
 
     def fit_2dGaussianForPsfImaWithoutBgr(self, new_psf_ima):
-        new_psf_ima = new_psf_ima[140:165,300:325]
+        #new_psf_ima = new_psf_ima[140:165,300:325]
+        new_psf_ima, y_min, x_min = self.ima_cutter(new_psf_ima, self._pixelCut)
 
         new_par = fit_2dgaussian(new_psf_ima)._parameters
         new_fit_ampx = new_par[2] - np.int(new_par[2])
@@ -63,8 +66,8 @@ class SR_Calculator():
         new_constant = new_par[0]
 
         par_psf_ima_no_bgr = np.copy(new_par)
-        par_psf_ima_no_bgr[2] = new_par[2] + 300
-        par_psf_ima_no_bgr[3] = new_par[3] + 140
+        par_psf_ima_no_bgr[2] = new_par[2] + x_min #300
+        par_psf_ima_no_bgr[3] = new_par[3] + y_min #140
         return par_psf_ima_no_bgr
 
     def bgr_calc(self, psf_ima, par, const_for_rmin=6):
@@ -75,7 +78,11 @@ class SR_Calculator():
             const_for_rmin = value to be multiplied at sigma to obtain r_min
 
         return:
-            final_bgr = psf_ima background
+            xx = 2d coordinates used to map Gaussian radially
+            yy = 2d coordinates used to map Gaussian radially
+            rmin = minimum radius used for bgr calculation
+            rmax = minimum radius used for bgr calculation
+            final_bgr = psf_ima background (int)
         '''
         #refine background rejection
         size = np.array([psf_ima.shape[0], psf_ima.shape[1]])
@@ -112,10 +119,13 @@ class SR_Calculator():
         a inner obscuration central zone.
 
         args:
-            wl = lambda
-            Fn = F-number at telescope focal plane
-            x_coord =
-            y_coord =
+            self._wl = lambda
+            self._pixsize = [um] pixel size of camera at telescope focal plane
+            self._Fn = F-number at telescope focal plane
+            x_coord = 2d coordinates to create the psf
+            y_coord = 2d coordinates to create the psf
+            rmin = internal radius
+            rmax = external radius
 
         returns:
             psf_diff = psf diffraction limited
@@ -152,9 +162,15 @@ class SR_Calculator():
         fits_file_name = os.path.join(folder, file_name)
         hduList = pyfits.open(fits_file_name)
         psf_ima= hduList[0].data
-        psf_ima_cut = psf_ima[140:165,300:325]
-        return psf_ima_cut, psf_ima
+        #psf_ima_cut = psf_ima[140:165,300:325]
+        return psf_ima
 
+    def ima_cutter(self, image, px):
+        y_peak, x_peak = np.where(image == np.max(image))
+        y_min = y_peak[0]-px
+        x_min = x_peak[0]-px
+        image_cut = image[y_min:y_peak[0]+px+1, x_min:x_peak[0]+px+1]
+        return image_cut, y_min, x_min
 
 
 
