@@ -6,6 +6,7 @@ import os
 import numpy as np
 from astropy.io import fits as pyfits
 from scipy import special
+import sklearn.preprocessing
 from photutils.datasets import make_gaussian_sources_image
 from astropy.table import Table
 from photutils.centroids import fit_2dgaussian
@@ -30,15 +31,20 @@ class SR_Calculator():
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
 
         norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
-        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
-        strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
+        aa = sklearn.preprocessing.normalize(psf_ima_no_bgr)
 
-        return par_psf_ima, par_psf_ima_no_bgr, psf_ima_no_bgr, psf_diffraction_limited, strehl_ratio
+        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
+        bb = sklearn.preprocessing.normalize(psf_diffraction_limited)
+
+        strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
+        strehl_ratio_norm = np.max(aa) / np.max(bb)
+
+        return strehl_ratio, strehl_ratio_norm
 
     def fit_2dGaussianForPsfImaCut(self, psf_ima_cut, y_min, x_min):
         '''
         arg:
-            psf_ima_cut = camera frame containing the PSF 
+            psf_ima_cut = camera frame containing the PSF
 
         return:
             par_cut = parameters of 2D Gaussian fit for cut image
@@ -89,7 +95,7 @@ class SR_Calculator():
         ima_x = np.arange(size[0], dtype = float)
         ima_y = np.arange(size[1], dtype = float)
 
-        sigma = np.sqrt(par[4]*par[5])
+        sigma = np.sqrt((par[4]*par[5]))
         xx = np.tile(ima_x, (size[0], 1))-par[2]
         yy = np.tile(ima_y, (size[1], 1)).T-par[3]
         rr = np.sqrt(xx**2+yy**2)
@@ -105,13 +111,28 @@ class SR_Calculator():
 
         bgr = np.zeros(nr-1)
         for i in range(0, nr-1):
-            idx = np.where(rr>=vr[i], rr, rr<=vr[i+1]).astype(int)
-            idx[np.where(idx==1)]=0
+            circ1 = (rr>=vr[i]).astype(int)
+            circ2 = (rr<=vr[i+1]).astype(int)
+            ring = circ1 * circ2
+            idx = np.where(ring == 1)
             bgr[i] = np.mean(psf_ima[idx])
 
-        #togliere i primi valori
-        final_bgr = np.mean(bgr)
+        bgr_cut = self.bgr_cut(bgr)
+        final_bgr = np.mean(bgr_cut)
         return xx, yy, rmin, rmax, final_bgr
+
+    def bgr_cut(self, bgr):
+        ''' Taglio i primi punti che stanno ad una distanza maggiore di 2 tra loro
+        '''
+        n= np.zeros(bgr.size)
+        for j in range(bgr.size-1):
+            if abs(bgr[j+1]-bgr[j]) >= 2:
+                n[j]=1
+            else:
+                n[j]=0
+        aa = n.sum().astype(int)
+        bgr_cut = bgr[aa:]
+        return bgr_cut
 
 
     def create_psf_diffraction_limited(self, x_coord, y_coord, rmin, rmax):
@@ -155,10 +176,14 @@ class SR_Calculator():
         data2 = data + 7
         return data2
 
-    def read_psf_file_fits(self):
+    def read_psf_file_fits(self, file_name):
         folder = '/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
         #file_name = 'ERIS_IRCAM_2020-01-24T11_31_30.299.fits'
-        file_name = 'ERIS_IRCAM_2020-01-24T15_17_12.503.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-24T15_17_12.503.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-24T15_21_14.162.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-27T12_20_53.915.fits'    viene una sigma negativa
+        #file_name = 'ERIS_IRCAM_2020-01-27T12_21_14.940.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-27T12_21_25.565.fits'
         fits_file_name = os.path.join(folder, file_name)
         hduList = pyfits.open(fits_file_name)
         psf_ima= hduList[0].data
@@ -192,3 +217,7 @@ class SR_Calculator():
 # 
 #         final_psf = np.array(psf_list)
 #         
+# 
+# INDICE BGR SBAGLIATO
+#     idx = np.where(rr>=vr[i], rr, rr<=vr[i+1]).astype(int)
+#             idx[np.where(idx==1)]=0
