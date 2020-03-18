@@ -30,16 +30,21 @@ class SR_Calculator():
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
 
-        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(np.abs(psf_ima_no_bgr))
         aa = sklearn.preprocessing.normalize(psf_ima_no_bgr)
 
-        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
+        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(np.abs(psf_diffraction_limited))
         bb = sklearn.preprocessing.normalize(psf_diffraction_limited)
 
         strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
         strehl_ratio_norm = np.max(aa) / np.max(bb)
 
         return strehl_ratio, strehl_ratio_norm
+    ### PLOT ###
+#        x= np.arange(280,350)
+#        plot(x, norm_psf_ima_no_bgr[146,280:350], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.legend()
+# 
+#        plot(x, aa[146,280:350], label='psf_no_bgr');plot(x, bb[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.legend()
 
     def fit_2dGaussianForPsfImaCut(self, psf_ima_cut, y_min, x_min):
         '''
@@ -120,6 +125,9 @@ class SR_Calculator():
         bgr_cut = self.bgr_cut(bgr)
         final_bgr = np.mean(bgr_cut)
         return xx, yy, rmin, rmax, final_bgr
+        ### PLOT ###
+#        axs = vr[0:vr.size-1]
+#        plot(axs, bgr); plot(axs, bgr, 'o'); plt.xlabel('r [px]'); plt.ylabel('bgr'); plt.title('bgr medio = %f' %np.mean(bgr))
 
     def bgr_cut(self, bgr):
         ''' Taglio i primi punti che stanno ad una distanza maggiore di 2 tra loro
@@ -180,7 +188,7 @@ class SR_Calculator():
         folder = '/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
         #file_name = 'ERIS_IRCAM_2020-01-24T11_31_30.299.fits'
         #file_name = 'ERIS_IRCAM_2020-01-24T15_17_12.503.fits'
-        #file_name = 'ERIS_IRCAM_2020-01-24T15_21_14.162.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-24T15_21_14.162.fits'    per test
         #file_name = 'ERIS_IRCAM_2020-01-27T12_20_53.915.fits'    viene una sigma negativa
         #file_name = 'ERIS_IRCAM_2020-01-27T12_21_14.940.fits'
         #file_name = 'ERIS_IRCAM_2020-01-27T12_21_25.565.fits'
@@ -196,7 +204,6 @@ class SR_Calculator():
         x_min = x_peak[0]-px
         image_cut = image[y_min:y_peak[0]+px+1, x_min:x_peak[0]+px+1]
         return image_cut, y_min, x_min
-
 
 
 
