@@ -30,20 +30,20 @@ class SR_Calculator():
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
 
-        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(np.abs(psf_ima_no_bgr))
-        aa = sklearn.preprocessing.normalize(psf_ima_no_bgr)
+        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+        #aa = sklearn.preprocessing.normalize(psf_ima_no_bgr)
 
-        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(np.abs(psf_diffraction_limited))
-        bb = sklearn.preprocessing.normalize(psf_diffraction_limited)
+        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
+        #bb = sklearn.preprocessing.normalize(psf_diffraction_limited)
 
         strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
-        strehl_ratio_norm = np.max(aa) / np.max(bb)
+        #strehl_ratio_norm = np.max(aa) / np.max(bb)
 
-        return strehl_ratio, strehl_ratio_norm
+        return strehl_ratio, norm_psf_ima_no_bgr, norm_psf_diffraction_limited
     ### PLOT ###
 #        x= np.arange(280,350)
-#        plot(x, norm_psf_ima_no_bgr[146,280:350], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.legend()
-# 
+#        plot(x, norm_psf_ima_no_bgr[146,280:350], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.title('SR = %f' %strehl_ratio); plt.legend()
+#
 #        plot(x, aa[146,280:350], label='psf_no_bgr');plot(x, bb[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.legend()
 
     def fit_2dGaussianForPsfImaCut(self, psf_ima_cut, y_min, x_min):
@@ -107,7 +107,7 @@ class SR_Calculator():
 
         cc = np.array([10,10,10,10])
         rmax = np.min((par[2], par[3], size[0]-par[2]-1,
-                       size[1]-par[3]-1)-cc).astype(int)
+                       size[1]-par[3]-1)).astype(int)   #ho tolto cc per arrivare più vicino al bordo
         rmin = np.ceil(const_for_rmin * sigma)
         dr = 3
         #rmax = ((rmax-rmin)/dr)*dr+rmin
@@ -122,8 +122,8 @@ class SR_Calculator():
             idx = np.where(ring == 1)
             bgr[i] = np.mean(psf_ima[idx])
 
-        bgr_cut = self.bgr_cut(bgr)
-        final_bgr = np.mean(bgr_cut)
+        #bgr_cut = self.bgr_cut(bgr)
+        final_bgr = np.mean(bgr)
         return xx, yy, rmin, rmax, final_bgr
         ### PLOT ###
 #        axs = vr[0:vr.size-1]
@@ -206,6 +206,12 @@ class SR_Calculator():
         return image_cut, y_min, x_min
 
 
+    def _esercizio(self):
+        ima = np.zeros((512,512))+10
+        ima_rum = ima + np.random.poisson(lam=10.0,size=(512,512))
+        ima_no_bgr = ima_rum - np.mean(ima_rum)
+        en = np.sum(ima_no_bgr)
+        return en
 
 
 
@@ -223,7 +229,7 @@ class SR_Calculator():
 #                 psf_list.append(psf)
 # 
 #         final_psf = np.array(psf_list)
-#         
+
 # 
 # INDICE BGR SBAGLIATO
 #     idx = np.where(rr>=vr[i], rr, rr<=vr[i+1]).astype(int)
