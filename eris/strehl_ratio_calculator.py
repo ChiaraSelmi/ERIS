@@ -6,6 +6,7 @@ import os
 import numpy as np
 from astropy.io import fits as pyfits
 from scipy import special
+from photutils import background
 import sklearn.preprocessing
 from photutils.datasets import make_gaussian_sources_image
 from astropy.table import Table
@@ -26,7 +27,9 @@ class SR_Calculator():
         psf_ima_cut, y_min, x_min = self.ima_cutter(psf_ima, self._pixelCut)
         par_cut, par_psf_ima = self.fit_2dGaussianForPsfImaCut(psf_ima_cut, y_min, x_min)
         xx, yy, rmin, rmax, final_bgr = self.bgr_calc(psf_ima, par_psf_ima)
+
         psf_ima_no_bgr = psf_ima - final_bgr
+
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
 
@@ -45,6 +48,24 @@ class SR_Calculator():
 #        plot(x, norm_psf_ima_no_bgr[146,280:350], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.title('SR = %f' %strehl_ratio); plt.legend()
 #
 #        plot(x, aa[146,280:350], label='psf_no_bgr');plot(x, bb[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.legend()
+
+    def _proveBkg(self, psf_ima):
+        bkg = background.MeanBackground()
+        bkg_value = bkg.calc_background(psf_ima)
+        psf_ima_no_bgr = psf_ima - bkg_value
+        norm1 = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+
+        bkg = background.MedianBackground()
+        bkg_value = bkg.calc_background(psf_ima)
+        psf_ima_no_bgr = psf_ima - bkg_value
+        norm2 = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+
+        bkg = background.ModeEstimatorBackground()
+        bkg_value = bkg.calc_background(psf_ima)
+        psf_ima_no_bgr = psf_ima - bkg_value
+        norm3 = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+
+        return norm1, norm2, norm3
 
     def fit_2dGaussianForPsfImaCut(self, psf_ima_cut, y_min, x_min):
         '''
