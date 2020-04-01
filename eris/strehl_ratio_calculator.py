@@ -7,7 +7,6 @@ import numpy as np
 from astropy.io import fits as pyfits
 from scipy import special
 from photutils import background
-import sklearn.preprocessing
 from photutils.datasets import make_gaussian_sources_image
 from astropy.table import Table
 from photutils.centroids import fit_2dgaussian
@@ -34,13 +33,9 @@ class SR_Calculator():
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
 
         norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
-        #aa = sklearn.preprocessing.normalize(psf_ima_no_bgr)
-
         norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
-        #bb = sklearn.preprocessing.normalize(psf_diffraction_limited)
 
         strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
-        #strehl_ratio_norm = np.max(aa) / np.max(bb)
 
         return strehl_ratio, norm_psf_ima_no_bgr, norm_psf_diffraction_limited
     ### PLOT ###
@@ -116,7 +111,6 @@ class SR_Calculator():
             rmax = minimum radius used for bgr calculation
             final_bgr = psf_ima background (int)
         '''
-        #refine background rejection
         size = np.array([psf_ima.shape[0], psf_ima.shape[1]])
         ima_x = np.arange(size[0], dtype = float)
         ima_y = np.arange(size[1], dtype = float)
@@ -128,7 +122,7 @@ class SR_Calculator():
 
         cc = np.array([10,10,10,10])
         rmax = np.min((par[2], par[3], size[0]-par[2]-1,
-                       size[1]-par[3]-1)).astype(int)   #ho tolto cc per arrivare più vicino al bordo
+                       size[1]-par[3]-1)-cc).astype(int)
         rmin = np.ceil(const_for_rmin * sigma)
         dr = 3
         #rmax = ((rmax-rmin)/dr)*dr+rmin
@@ -149,19 +143,6 @@ class SR_Calculator():
         ### PLOT ###
 #        axs = vr[0:vr.size-1]
 #        plot(axs, bgr); plot(axs, bgr, 'o'); plt.xlabel('r [px]'); plt.ylabel('bgr'); plt.title('bgr medio = %f' %np.mean(bgr))
-
-    def bgr_cut(self, bgr):
-        ''' Taglio i primi punti che stanno ad una distanza maggiore di 2 tra loro
-        '''
-        n= np.zeros(bgr.size)
-        for j in range(bgr.size-1):
-            if abs(bgr[j+1]-bgr[j]) >= 2:
-                n[j]=1
-            else:
-                n[j]=0
-        aa = n.sum().astype(int)
-        bgr_cut = bgr[aa:]
-        return bgr_cut
 
 
     def create_psf_diffraction_limited(self, x_coord, y_coord, rmin, rmax):
@@ -190,6 +171,28 @@ class SR_Calculator():
 
         return psf
 
+    def ima_cutter(self, image, px):
+        y_peak, x_peak = np.where(image == np.max(image))
+        y_min = y_peak[0]-px
+        x_min = x_peak[0]-px
+        image_cut = image[y_min:y_peak[0]+px+1, x_min:x_peak[0]+px+1]
+        return image_cut, y_min, x_min
+
+    def read_psf_file_fits(self, file_name):
+        folder = '/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
+        #file_name = 'ERIS_IRCAM_2020-01-24T11_31_30.299.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-24T15_17_12.503.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-24T15_21_14.162.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-27T12_20_53.915.fits'    viene una sigma negativa
+        #file_name = 'ERIS_IRCAM_2020-01-27T12_21_14.940.fits'
+        #file_name = 'ERIS_IRCAM_2020-01-27T12_21_25.565.fits'
+        fits_file_name = os.path.join(folder, file_name)
+        hduList = pyfits.open(fits_file_name)
+        psf_ima= hduList[0].data
+        #psf_ima_cut = psf_ima[140:165,300:325]
+        return psf_ima
+
+    ###
     def make_psf_ima(self):
         ''' Create a gaussian distribution to use as test psf_ima
         '''
@@ -205,53 +208,10 @@ class SR_Calculator():
         data2 = data + 7
         return data2
 
-    def read_psf_file_fits(self, file_name):
-        folder = '/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
-        #file_name = 'ERIS_IRCAM_2020-01-24T11_31_30.299.fits'
-        #file_name = 'ERIS_IRCAM_2020-01-24T15_17_12.503.fits'
-        #file_name = 'ERIS_IRCAM_2020-01-24T15_21_14.162.fits'    per test
-        #file_name = 'ERIS_IRCAM_2020-01-27T12_20_53.915.fits'    viene una sigma negativa
-        #file_name = 'ERIS_IRCAM_2020-01-27T12_21_14.940.fits'
-        #file_name = 'ERIS_IRCAM_2020-01-27T12_21_25.565.fits'
-        fits_file_name = os.path.join(folder, file_name)
-        hduList = pyfits.open(fits_file_name)
-        psf_ima= hduList[0].data
-        #psf_ima_cut = psf_ima[140:165,300:325]
-        return psf_ima
-
-    def ima_cutter(self, image, px):
-        y_peak, x_peak = np.where(image == np.max(image))
-        y_min = y_peak[0]-px
-        x_min = x_peak[0]-px
-        image_cut = image[y_min:y_peak[0]+px+1, x_min:x_peak[0]+px+1]
-        return image_cut, y_min, x_min
-
-
     def _esercizio(self):
         ima = np.zeros((512,512))+10
         ima_rum = ima + np.random.poisson(lam=10.0,size=(512,512))
         ima_no_bgr = ima_rum - np.mean(ima_rum)
         en = np.sum(ima_no_bgr)
         return en
-
-
-
-    ### Roba ###
-
-#             psf_list = []
-#         for i in range(r.shape[0]):
-#             if r[i]== 0:
-#                 psf_zero = 1.
-#                 psf_list.append(psf_zero)
-#             else:
-#                 psf = (1. / (1- epsilon**2)**2) * ((2. * special.jv(1, np.pi * r[i]))/(np.pi * r[i]) -
-#                                       epsilon**2 * 2. * special.jv(1, np.pi * r[i] * epsilon)/
-#                                       (np.pi * r[i] * epsilon))**2
-#                 psf_list.append(psf)
-# 
-#         final_psf = np.array(psf_list)
-
-# 
-# INDICE BGR SBAGLIATO
-#     idx = np.where(rr>=vr[i], rr, rr<=vr[i+1]).astype(int)
-#             idx[np.where(idx==1)]=0
+    ###
