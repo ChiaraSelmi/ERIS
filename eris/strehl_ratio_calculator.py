@@ -115,7 +115,7 @@ class SR_Calculator():
         ima_x = np.arange(size[0], dtype = float)
         ima_y = np.arange(size[1], dtype = float)
 
-        sigma = np.sqrt((par[4]*par[5]))
+        sigma = np.sqrt(np.abs(par[4]*par[5]))  ###ATTENZIONE###
         xx = np.tile(ima_x, (size[0], 1))-par[2]
         yy = np.tile(ima_y, (size[1], 1)).T-par[3]
         rr = np.sqrt(xx**2+yy**2)
