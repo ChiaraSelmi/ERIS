@@ -17,8 +17,8 @@ class SR_Calculator():
 
     def __init__(self):
         """The constructor """
-        self._pixelCut = 12
-        self._pixelsize_camera = 15e-6
+        self._pixelCut = 20
+        self._pixelsize_camera = 15e-6 #15e-6
         self._Fn_camera = 13.64
         self._lambda = 1300e-9
 
@@ -30,10 +30,13 @@ class SR_Calculator():
         psf_ima_no_bgr = psf_ima - final_bgr
 
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
-        psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy, rmin, rmax)
+        psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy)
 
-        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
-        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
+        norm_psf_ima_no_bgr = self._normalizePsf(psf_ima_no_bgr, par_psf_ima_no_bgr[2],
+                                                 par_psf_ima_no_bgr[3])
+        norm_psf_diffraction_limited = self._normalizePsf(psf_diffraction_limited,
+                                                          par_psf_ima_no_bgr[2],
+                                                          par_psf_ima_no_bgr[3])
 
         strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
 
@@ -43,6 +46,17 @@ class SR_Calculator():
 #        plot(x, norm_psf_ima_no_bgr[146,280:350], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.title('SR = %f' %strehl_ratio); plt.legend()
 #
 #        plot(x, aa[146,280:350], label='psf_no_bgr');plot(x, bb[146,280:350], label='psf_dl'); plt.xlabel('Pixel'); plt.legend()
+#        
+#        x= np.arange(40)
+#        plot(x, norm_psf_ima_no_bgr[20,0:40], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[20,0:40], label='psf_dl'); plt.xlabel('Pixel');plt.title('SR = %f' %strehl_ratio); plt.legend()
+
+    def _normalizePsf(self, psf_to_normalize, x_peak, y_peak):
+        x_peak = x_peak.astype(int)
+        y_peak = y_peak.astype(int)
+        psf_ima_cut = psf_to_normalize[y_peak-self._pixelCut:y_peak+self._pixelCut,
+                                       x_peak-self._pixelCut:x_peak+self._pixelCut]
+        norm_psf_ima = psf_ima_cut/np.sum(psf_ima_cut)
+        return norm_psf_ima
 
     def _proveBkg(self, psf_ima):
         bkg = background.MeanBackground()
@@ -145,23 +159,24 @@ class SR_Calculator():
 #        plot(axs, bgr); plot(axs, bgr, 'o'); plt.xlabel('r [px]'); plt.ylabel('bgr'); plt.title('bgr medio = %f' %np.mean(bgr))
 
 
-    def create_psf_diffraction_limited(self, x_coord, y_coord, rmin, rmax):
+    def create_psf_diffraction_limited(self, x_coord, y_coord):
         ''' create psf diffraction limited for a circular pupil with
         a inner obscuration central zone.
 
         args:
-            self._wl = lambda
+            self._lambda = lambda
             self._pixsize = [um] pixel size of camera at telescope focal plane
             self._Fn = F-number at telescope focal plane
             x_coord = 2d coordinates to create the psf
             y_coord = 2d coordinates to create the psf
-            rmin = internal radius
-            rmax = external radius
+            rmin = diametro del secondario
+            rmax = diametro del primario
 
         returns:
             psf_diff = psf diffraction limited
         '''
-        epsilon = rmin / rmax
+        #epsilon = rmin / rmax = 1.2 / 8.2 metri
+        epsilon = 0.14
         r = np.sqrt(x_coord**2 + y_coord**2)* self._pixelsize_camera/(self._lambda * self._Fn_camera)
         #r = np.linspace(1,20,500)
 
@@ -215,3 +230,17 @@ class SR_Calculator():
         en = np.sum(ima_no_bgr)
         return en
     ###
+
+    ### prova
+    # xc = 314; yc = 150
+    # pp = rr[yc-sr._pixelCut:yc+sr._pixelCut+1, xc-sr._pixelCut:xc+sr._pixelCut+1]
+    #
+            #
+#         y_min = (par_psf_ima[3]-rmax).astype(int)
+#         y_max = (par_psf_ima[3]+rmax).astype(int)
+#         x_min = (par_psf_ima[2]-rmax).astype(int)
+#         x_max = (par_psf_ima[2]+rmax).astype(int)
+#         psf_ima_rmax = psf_ima[y_min:y_max, x_min:x_max]
+#         xx_rmax = xx[y_min:y_max, x_min:x_max]
+#         yy_rmax = yy[y_min:y_max, x_min:x_max]
+        #
