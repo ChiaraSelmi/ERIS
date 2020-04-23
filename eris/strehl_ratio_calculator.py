@@ -50,6 +50,18 @@ class SR_Calculator():
 #        x= np.arange(40)
 #        plot(x, norm_psf_ima_no_bgr[20,0:40], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[20,0:40], label='psf_dl'); plt.xlabel('Pixel');plt.title('SR = %f' %strehl_ratio); plt.legend()
 
+    def principal_main_cut(self, psf_ima):
+        psf_ima_cut, y_min, x_min = self.ima_cutter(psf_ima, 50)
+        par_cut = fit_2dgaussian(psf_ima_cut)._parameters
+        xx, yy, rmin, rmax, final_bgr = self.bgr_calc(psf_ima_cut, par_cut)
+        psf_ima_no_bgr = psf_ima_cut - final_bgr
+        psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy)
+
+        norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
+        norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
+        strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
+        return strehl_ratio, norm_psf_ima_no_bgr, norm_psf_diffraction_limited
+
     def _normalizePsf(self, psf_to_normalize, x_peak, y_peak):
         x_peak = x_peak.astype(int)
         y_peak = y_peak.astype(int)
