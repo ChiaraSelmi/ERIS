@@ -4,6 +4,7 @@
 
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from astropy.io import fits as pyfits
 from scipy import special
 from photutils import background
@@ -168,6 +169,22 @@ class SR_Calculator():
             a = psf_ima[:,i].mean()
             mean_list.append(a)
         return np.array(mean_list)
+
+    def plot_scalini(self):
+        measurementFolder ='/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
+        list= os.listdir(measurementFolder); list.sort()
+        mean_list = []
+        for name in list:
+            psf_ima = self.read_psf_file_fits(name)
+            mean = self.scalino(psf_ima)
+            mean_list.append(mean)
+        mean = np.array(mean_list)
+        for i in range(mean.shape[0]):
+            plt.plot(mean[i,:], label=list[i])
+            plt.xlabel('pixel_riga')
+            plt.ylabel('media_colonna')
+        plt.legend()
+        return mean, list
 
 ###
 
