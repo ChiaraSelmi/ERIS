@@ -22,7 +22,7 @@ class SR_Calculator():
         self._Fn_camera = 13.64
         self._lambda = 1300e-9
 
-    def principal_main(self, psf_ima, ring_or_circle):
+    def principal_main(self, psf_ima):
         ''' Eseguo il procedimento usando le dimenzioni totali del frame
         e alla fine eseguo la normalizzazione sull'immagine ritaziata al PixelCut
 
@@ -30,9 +30,10 @@ class SR_Calculator():
         '''
         psf_ima_cut, y_min, x_min = self.ima_cutter(psf_ima, self._pixelCut)
         par_cut, par_psf_ima = self.fit_2dGaussianForPsfImaCut(psf_ima_cut, y_min, x_min)
-        xx, yy, rmin, rmax, final_bgr = self.bgr_calc(psf_ima, par_psf_ima)
+        xx, yy, rr, rmin, rmax, nr, vr = self.bgr_parameters(psf_ima, par_psf_ima)
 
-        psf_ima_no_bgr = psf_ima - final_bgr[ring_or_circle]
+        final_bgr = self._bgrCircle(psf_ima, rr, nr, vr)
+        psf_ima_no_bgr = psf_ima - final_bgr
 
         par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy)
@@ -55,21 +56,48 @@ class SR_Calculator():
 #        x= np.arange(40)
 #        plot(x, norm_psf_ima_no_bgr[20,0:40], label='psf_no_bgr');plot(x, norm_psf_diffraction_limited[20,0:40], label='psf_dl'); plt.xlabel('Pixel');plt.title('SR = %f' %strehl_ratio); plt.legend()
 
-    def principal_main_cut(self, psf_ima, cut, ring_or_circle):
+    def principal_main_cut(self, psf_ima, cut):
         ''' Passo cut=numero di pixel per ritagliare il frame iniziale
         ed eseguo tutto il procedimento su quella dimenzione lì
         '''
         psf_ima_cut, y_min, x_min = self.ima_cutter(psf_ima, cut)
         par_cut = fit_2dgaussian(psf_ima_cut)._parameters
-        xx, yy, rmin, rmax, final_bgr = self.bgr_calc(psf_ima_cut, par_cut)
+        xx, yy, rr, rmin, rmax, nr, vr = self.bgr_parameters(psf_ima_cut, par_cut)
         print(rmin, rmax)
-        psf_ima_no_bgr = psf_ima_cut - final_bgr[ring_or_circle]
+        final_bgr = self._bgrRings(psf_ima, rr, nr, vr)
+        psf_ima_no_bgr = psf_ima_cut - final_bgr
         psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy)
 
         norm_psf_ima_no_bgr = psf_ima_no_bgr/np.sum(psf_ima_no_bgr)
         norm_psf_diffraction_limited = psf_diffraction_limited/np.sum(psf_diffraction_limited)
         strehl_ratio = np.max(norm_psf_ima_no_bgr)/np.max(norm_psf_diffraction_limited)
         return strehl_ratio, norm_psf_ima_no_bgr, norm_psf_diffraction_limited
+
+    def principal_main_tot(self, psf_ima):
+        ''' usa il coefficiente trovato dal fit per normalizzare la psf
+        Non torna proprio
+        '''
+        psf_ima_cut, y_min, x_min = self.ima_cutter(psf_ima, self._pixelCut)
+        par_cut, par_psf_ima = self.fit_2dGaussianForPsfImaCut(psf_ima_cut, y_min, x_min)
+        xx, yy, rr, rmin, rmax, nr, vr = self.bgr_parameters(psf_ima, par_psf_ima)
+        final_bgr = self._bgrRings(psf_ima, rr, nr, vr)
+        psf_ima_no_bgr = psf_ima_cut - final_bgr
+        par_psf_ima_no_bgr = self.fit_2dGaussianForPsfImaWithoutBgr(psf_ima_no_bgr)
+
+        tot, nq, a, b = self._totAreaCircle(psf_ima, rr, nr, vr)
+
+        psf_diffraction_limited = self.create_psf_diffraction_limited(xx, yy)
+        norm_psf_diffraction_limited = self._normalizePsf(psf_diffraction_limited,
+                                                          par_psf_ima[2],
+                                                          par_psf_ima[3])
+
+        x_peak = par_psf_ima_no_bgr[2].astype(int)
+        y_peak = par_psf_ima_no_bgr[3].astype(int)
+        psf_ima_cut_to_norm = psf_ima_no_bgr[y_peak-self._pixelCut:y_peak+self._pixelCut,
+                                       x_peak-self._pixelCut:x_peak+self._pixelCut]
+        norm_psf_ima = psf_ima_cut_to_norm / b
+        strehl_ratio = np.max(norm_psf_ima)/np.max(norm_psf_diffraction_limited)
+        return strehl_ratio, norm_psf_ima, norm_psf_diffraction_limited
 
     def _normalizePsf(self, psf_to_normalize, x_peak, y_peak):
         x_peak = x_peak.astype(int)
@@ -80,31 +108,36 @@ class SR_Calculator():
         return norm_psf_ima
 
     def seq_sr(self, psf_ima, pix):
+        ''' Caso taglio dopo
+        Fa la sequenza di calcolo del valore si sr a seconda del numero di pixel
+        '''
         srList = []
         for i in pix:
             print(i)
             self._pixelCut = i
-            sr, n_bgr,n_dl = self.principal_main(psf_ima, 0)
+            sr, n_bgr,n_dl = self.principal_main(psf_ima)
             srList.append(sr)
         return np.array(srList), pix
     ###PLOT
     # plot(pix, sh); plt.xlabel('pixel'); plt.ylabel('strehl ratio'); plt.title('SR_max = %f' %np.max(sh))
 
-    def seq_sr_cut(self, psf_ima, ring_or_circle):
+    def seq_sr_cut(self, psf_ima):
+        ''' caso taglio prima
+        Fa la sequenza di calcolo del valore si sr a seconda del numero di pixel
+        '''
         srList = []
         #pix = np.arange(239)+15
         prova = np.arange(79)+12
         prova2 = np.arange(6)+95
         prova3 = np.append(np.array([105,106,108,109,110,112,113,114,115]), np.arange(121,127))
-        prova4 = np.append(np.array([128,129,131,132,134,137]), np.arange(140,144))
+        #prova4 = np.append(np.array([128,129,131,132,134,137]), np.arange(140,144))
         p = np.append(prova, prova2)
         pp = np.append(p, prova3)
-        ppp = np.append(pp, prova4)
 
         pix = p
         for i in pix:
             print(i)
-            sr, n_bgr,n_dl = self.principal_main_cut(psf_ima, i, ring_or_circle)
+            sr, n_bgr,n_dl = self.principal_main_cut(psf_ima, i)
             srList.append(sr)
         return np.array(srList), pix
     ###PLOT
@@ -173,7 +206,7 @@ class SR_Calculator():
         par_psf_ima_no_bgr[3] = new_par[3] + y_min #140
         return par_psf_ima_no_bgr
 
-    def bgr_calc(self, psf_ima, par, const_for_rmin=6):
+    def bgr_parameters(self, psf_ima, par, const_for_rmin=6):
         '''
         arg:
             psf_ima = camera frame containing the PSF
@@ -207,16 +240,14 @@ class SR_Calculator():
         #rmax = 200 e 250
         nr = (np.abs(rmax-rmin)/dr).astype(int)
         vr = np.arange(np.abs(rmin), np.abs(rmax), step=dr)
-
-        final_bgr1 = self._bgrRings(psf_ima, rr, nr, vr)
-        final_bgr2 = self._bgrCircle(psf_ima, rr, nr, vr)
-        final_bgr = np.array([final_bgr1, final_bgr2])
-        return xx, yy, rmin, rmax, final_bgr
+        return xx, yy, rr, rmin, rmax, nr, vr
         ### PLOT ###
 #        axs = vr[0:vr.size-1]
 #        plot(axs, bgr); plot(axs, bgr, 'o'); plt.xlabel('r [px]'); plt.ylabel('bgr'); plt.title('bgr medio = %f' %np.mean(bgr))
 
     def _bgrRings(self, psf_ima, rr, nr, vr):
+        ''' Calcola bgr sugli anelli
+        '''
         bgr = np.zeros(nr-1)
         for i in range(0, nr-1):
             circ1 = (rr>=vr[i]).astype(int)
@@ -229,6 +260,8 @@ class SR_Calculator():
         return final_bgr
 
     def _bgrCircle(self, psf_ima, rr, nr, vr):
+        ''' Calcola il bgr su cerchi pieni sempre più grandi
+        '''
         bgr = np.zeros(nr-1)
         for i in range(0, nr-1):
             circ2 = (rr<=vr[i+1]).astype(int)
@@ -238,14 +271,20 @@ class SR_Calculator():
         return final_bgr
 
     def _totAreaCircle(self, psf_ima, rr, nr, vr):
+        ''' Dei cerchi pieni sempre più grandi fa il totale dentro
+        il fit dovrebbe caratterizzare il bgr
+        '''
         tot = np.zeros(nr-1)
         for i in range(0, nr-1):
             circ2 = (rr<=vr[i+1]).astype(int)
             idx = np.where(circ2 == 1)
             tot[i] = np.sum(psf_ima[idx])
-        axs = vr[0:vr.size-1]
-        axs_quad = axs**2
-        return tot, axs_quad
+        diff = vr.shape[0] - tot.shape[0]
+        axs = vr[0:vr.size-diff]
+        n_pix = axs**2
+        # fit che restituisce a = media bgr; b = totale psf senza background
+        a, b = np.polyfit(n_pix, tot, 1)
+        return tot, n_pix, a, b
 
 
     def create_psf_diffraction_limited(self, x_coord, y_coord):
