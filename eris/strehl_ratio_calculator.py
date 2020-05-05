@@ -168,23 +168,35 @@ class SR_Calculator():
         for i in range(psf_ima.shape[1]):
             a = psf_ima[:,i].mean()
             mean_list.append(a)
-        return np.array(mean_list)
+        mean_col = np.array(mean_list)
+        mean_list = []
+        for i in range(psf_ima.shape[1]):
+            a = psf_ima[i,:].mean()
+            mean_list.append(a)
+        mean_rig = np.array(mean_list)
+        return mean_col, mean_rig
 
     def plot_scalini(self):
         measurementFolder ='/Users/rm/Desktop/Arcetri/ERIS/Python/immaginiperiltestdellamisuradellosr'
         list= os.listdir(measurementFolder); list.sort()
-        mean_list = []
+        meanc_list = []
+        meanr_list = []
         for name in list:
             psf_ima = self.read_psf_file_fits(name)
-            mean = self.scalino(psf_ima)
-            mean_list.append(mean)
-        mean = np.array(mean_list)
-        for i in range(mean.shape[0]):
-            plt.plot(mean[i,:], label=list[i])
-            plt.xlabel('pixel_riga')
-            plt.ylabel('media_colonna')
+            meanc, meanr = self.scalino(psf_ima)
+            meanc_list.append(meanc)
+            meanr_list.append(meanr)
+        meanc = np.array(meanc_list)
+        meanr = np.array(meanr_list)
+
+        for i in range(meanr.shape[0]):
+            plt.plot(meanr[i,:], label=list[i])
+#             plt.xlabel('pixel_riga')
+#             plt.ylabel('media_colonna')
+            plt.xlabel('pixel_colonna')
+            plt.ylabel('media_riga')
         plt.legend()
-        return mean, list
+        return meanr, list
 
 ###
 
@@ -374,4 +386,5 @@ class SR_Calculator():
         ima_no_bgr = ima_rum - np.mean(ima_rum)
         en = np.sum(ima_no_bgr)
         return en
+
     ###
