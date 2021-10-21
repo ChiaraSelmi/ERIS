@@ -16,7 +16,7 @@ KEYWORDS = 'Adaptive Optics, Astrophysics, INAF, Arcetri',
 here = os.path.abspath(os.path.dirname(__file__))
 # Load the package's __version__.py module as a dictionary.
 about = {}
-with open(os.path.join(here, NAME, '__version__.py')) as f:
+with open(os.path.join(here, '__version__.py')) as f:
     exec(f.read(), about)
 
 
