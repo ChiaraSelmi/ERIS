@@ -17,8 +17,16 @@ Per modificare le impostazione della camera usare:
 - cam.setBinning(binning)
 - per tutte le altre funzioni: https://github.com/ArcetriAdaptiveOptics/pysilico/blob/master/pysilico/client/camera_client.py
 
+## Installare il pacchetto ERIS da github ##
+Per installarlo potendo modificarne il contenuto:
+- git clone https://github.com/ChiaraSelmi/ERIS.git
+- cd ERIS
+- python setup.py install
+
+Per installarlo senza accesso al contenuto:
+- pip install git+https://github.com/ChiaraSelmi/ERIS.git
+
 ## Utilizzare il codice di allineamento con puntatore ##
-- istruzioni per installare pachetto eris.....coming soon
 - Aprire python (ipython --pylab) ed eseguire:
   - import pysilico
   - cam = pysilico.camera(IPServer, port)   NOTA:port=7100 IPServer= IP macchina virtuale
