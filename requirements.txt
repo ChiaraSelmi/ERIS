@@ -1,0 +1,11 @@
+numpy>1.17
+scipy
+matplotlib
+astropy
+synphot
+pytest
+h5py
+scikit-image>0.15
+IPython
+sklearn
+pyyaml
