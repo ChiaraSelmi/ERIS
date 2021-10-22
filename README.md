@@ -26,6 +26,9 @@ Per installarlo potendo modificarne il contenuto:
 Per installarlo senza accesso al contenuto:
 - pip install git+https://github.com/ChiaraSelmi/ERIS.git
 
+Per scaricare i cambiamenti presenti su github:
+- git pull origin master
+
 ## Utilizzare il codice di allineamento con puntatore ##
 - Aprire python (ipython --pylab) ed eseguire:
   - import pysilico
