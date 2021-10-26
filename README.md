@@ -10,7 +10,8 @@ Some mini tools for activities on the adaptive optics module
 - Aprire python (ipython --pylab) ed eseguire:
   - import pysilico
   - cam = pysilico.camera(IPServer, port)   NOTA:port=7100 IPServer= IP macchina virtuale
-  - images = camera.getFutureFrames(numberOfReturnedImages, numberOfFramesToAverageForEachImage)
+  - cameraFrame = camera.getFutureFrames(numberOfReturnedImages, numberOfFramesToAverageForEachImage)
+  - images = cameraFrame.toNumpyArray()
 
 Per modificare le impostazione della camera usare:
 - cam.setExposureTime(exposureTimeInMilliSeconds)
