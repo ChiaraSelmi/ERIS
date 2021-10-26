@@ -2,12 +2,17 @@
 Authors
   - C. Selmi: written in 2021
 '''
+
 import os
+import time
+import numpy as np
 from photutils import centroids
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
 from eris.type.pointer_align import PointerAlign
 from eris.ground import tracking_number_folder
+from IPython.display import clear_output
+
 
 IP = '192.168.1.18'
 PORT = 7100 #ma anche 7110
@@ -26,7 +31,7 @@ class PointerAligner():
         poniterId: string
             'NGS' or 'LGS'
         '''
-        self._camera = pysilico(IP, PORT)
+        self._camera = pysilico
         self._idData = PointerAlign(pointerId)
         self._tt = None
         self._dove = None
@@ -45,18 +50,28 @@ class PointerAligner():
         point0, point1 = self._idData.operationAndPrint(y00, y01, y11, y10)
         self._idData.saveInfo()
 
-        self.target_center(point0) #1 vite
-        self._pause()
-        self.target_center(point1) #2 vite
+        doagain = 1
+        while doagain ==1:
+            for i in range(0, 10):
+                self.target_center(point0) #1 vite
+                time.sleep(1)
+            doagain = int(input('Press 1 to repeat, 0 to exit:'))
+
+        doagain = 1
+        while doagain ==1:
+            for i in range(0, 10):
+                self.target_center(point1) #2 vite
+                time.sleep(1)
+            doagain = int(input('Press 1 to repeat, 0 to exit:'))
 
 
     def dyCalculator(self):
         images = self.take_images(1)
-        coord0 = self.centroid_calculator(images[0])
+        coord0 = self.centroid_calculator(images)
         print('Rotate ±180°')
         self._pause() #rotazione
         images = self.take_images(1)
-        coord1 = self.centroid_calculator(images[0])
+        coord1 = self.centroid_calculator(images)
 
         dy = coord1[1]-coord0[1]
         print('Y offset [um, as]')
@@ -76,10 +91,22 @@ class PointerAligner():
             point y coord
         '''
         image = self.take_images(1)
-        plt.imshow(image, origin='lower')
-        plt.colorbar()
-        size = 250
-        plt.scatter(point, point, s=size, c='red', marker='+')
+        imm = image.copy()
+        ymin = np.int32(np.round(point[1]-5))
+        ymax = np.int32(np.round(point[1]+5))
+        imm[:, ymin:ymax] = imm[:,ymin:ymax]*4
+        xmin = np.int32(np.round(point[0]-5))
+        ymax = np.int32(np.round(point[0]+5))
+        imm[xmin:xmax, :] = imm[xmin:xmax, :]*4
+        self._plot(imm)
+        
+    def _plot(self, imm):
+        clear_output(wait=True)
+        plt.imshow(imm, origin='lower')
+        plt.show()
+        plt.pause(0.1)
+        #size = 250
+        #plt.scatter(point, point, s=size, c='red', marker='+')
 
     def _saveImage(self, image, name):
         fits_file_name = os.path.join(self._dove, name)
@@ -105,7 +132,7 @@ class PointerAligner():
         images = self._camera.getFutureFrames(numberOfReturnedImages,
                                      numberOfFramesToAverageForEachImage=1)
                                     #timeout
-        return images.ToNumpyArray()
+        return images.toNumpyArray()
 
     def centroid_calculator(self, data):
         '''
@@ -119,21 +146,17 @@ class PointerAligner():
         coord: list
             centroid's coordinates
         '''
-        x, y = centroids.centroid_com(data, mask=None) #Calculates the object “center of mass” from 2D image moments
-        x, y = centroids.centroid_1dg(data, error=None, mask=None) #Calculates the centroid by fitting 1D Gaussians to the marginal x and y distributions of the data.
+        #x, y = centroids.centroid_com(data, mask=None) #Calculates the object “center of mass” from 2D image moments
+        #x, y = centroids.centroid_1dg(data, error=None, mask=None) #Calculates the centroid by fitting 1D Gaussians to the marginal x and y distributions of the data.
         x, y = centroids.centroid_2dg(data, error=None, mask=None) #Calculates the centroid by fitting a 2D Gaussian to the 2D distribution of the data.
         #https://photutils.readthedocs.io/en/v0.3.1/photutils/centroids.html
-        par = centroids.fit_2dgaussian(data)._parameters #uguale a 2dg
+        #par = centroids.fit_2dgaussian(data)._parameters #uguale a 2dg
         return [x, y]
 
 
 
-# def test():
-#     from m4.pointer_aligner import PointerAligner
-#     from m4.configuration import start
-#     conf = '/Users/rm/eclipse-workspace/M4/m4/configuration/myConfig.yaml'
-#     ott, interf = start.create_ott(conf)
-#     def camera(IP, PORT): 
-#         IP = 'ciao' 
-#         PORT = 'riciao'
-#     p = PointerAligner(camera, 'NGS')
+def test():
+    from eris.pointer_aligner import PointerAligner
+    import pysilico
+    camera = pysilico.camera('193.206.155.43', 7100)
+    p = PointerAligner(camera, 'LGS')

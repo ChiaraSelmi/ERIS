@@ -44,7 +44,7 @@ class PointerAlign():
             self.p = 0.038
             self.folder = os.path.join(config.POINTER_ALIGN_ROOT_FOLDER, 'NGSPointer')
         if pointerId == 'LGS':
-            self.exposureTimeInMilliSeconds = 0.001*5
+            self.exposureTimeInMilliSeconds = 0.05
             self.l1 = 0.485 #distance from II actuator and first measurement point
             self.l2 = 1.03 #distance from II actuator and second measurement point
             self.p = 0.033
