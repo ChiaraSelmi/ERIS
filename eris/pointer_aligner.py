@@ -92,12 +92,9 @@ class PointerAligner():
         '''
         image = self.take_images(1)
         imm = image.copy()
-        ymin = np.int32(np.round(point[1]-5))
-        ymax = np.int32(np.round(point[1]+5))
+        ymin = np.int32(np.round(point-5))
+        ymax = np.int32(np.round(point+5))
         imm[:, ymin:ymax] = imm[:,ymin:ymax]*4
-        xmin = np.int32(np.round(point[0]-5))
-        ymax = np.int32(np.round(point[0]+5))
-        imm[xmin:xmax, :] = imm[xmin:xmax, :]*4
         self._plot(imm)
         
     def _plot(self, imm):
