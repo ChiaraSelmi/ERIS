@@ -27,7 +27,7 @@ class PointerAlign():
         self.l2 = None
         self.p = None #distance between actuators
         self.defineParameters(pointerId)
-        self.pixs = 7.2e-6
+        self.pixs = 5.5e-6 #7.4 7.4
         self.rad2as = 206265 #[as/ras]
 
     def defineParameters(self, pointerId):

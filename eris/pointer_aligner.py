@@ -40,48 +40,50 @@ class PointerAligner():
         self._dove, self._tt = tracking_number_folder.createFolderToStoreMeasurements(self._idData.folder)
         self._idData.dove = self._dove
         self._idData.tt = self._tt
-        y00, y01, image_a = self.dyCalculator()
-        self._saveImage(image_a, 'xTilt.fits')
+        y00, y01, image_a = self._dyCalculator()
+        #self._saveImage(image_a, 'xTilt.fits')
         print('Move camera away')
         self._pause() #spostare camera
-        y11, y10, image_b = self.dyCalculator()
-        self._saveImage(image_b, 'yTilt.fits')
+        y11, y10, image_b = self._dyCalculator()
+        #self._saveImage(image_b, 'yTilt.fits')
 
         point0, point1 = self._idData.operationAndPrint(y00, y01, y11, y10)
         self._idData.saveInfo()
 
+        x, y = self._centroid_calculator(image_b)
         doagain = 1
         while doagain ==1:
             for i in range(0, 10):
-                self.target_center(point0) #1 vite
+                self.target_center(point0, x) #1 vite
                 time.sleep(1)
             doagain = int(input('Press 1 to repeat, 0 to exit:'))
 
         doagain = 1
         while doagain ==1:
             for i in range(0, 10):
-                self.target_center(point1) #2 vite
+                self.target_center(point1, x) #2 vite
                 time.sleep(1)
             doagain = int(input('Press 1 to repeat, 0 to exit:'))
 
 
-    def dyCalculator(self):
-        images = self.take_images(1)
-        coord0 = self.centroid_calculator(images)
+    def _dyCalculator(self):
+        image0 = self.take_images(1)
+        coord0 = self._centroid_calculator(image0)
         print('Rotate ±180°')
         self._pause() #rotazione
-        images = self.take_images(1)
-        coord1 = self.centroid_calculator(images)
+        image1 = self.take_images(1)
+        coord1 = self._centroid_calculator(image1)
 
         dy = coord1[1]-coord0[1]
-        print('Y offset [um, as]')
+        print('Y offset [um]')
         print(dy*self._idData.pixs*1e6) #(dy*self._pixs/self._dl * self._rad2as)
 
-        image = images[0] + 2*images[1]
-        return coord0[1], coord1[1], image
+        image = image0 + 2*image1
+        self._plot(image)
+        return coord0[1], coord1[1], image1
 
 
-    def target_center(self, point):
+    def target_center(self, point, x):
         '''
         Function that acquires an image and draws a cross on the input point
 
@@ -94,8 +96,12 @@ class PointerAligner():
         imm = image.copy()
         ymin = np.int32(np.round(point-5))
         ymax = np.int32(np.round(point+5))
-        imm[:, ymin:ymax] = imm[:,ymin:ymax]*4
-        self._plot(imm)
+        imm[ymin:ymax, :] = imm[ymin:ymax, :]*4
+        roi = 100
+        x = np.int32(np.round(x))
+        point = np.int32(np.round(point))
+        imm1 = imm[point-roi:point+roi, x-roi:x+roi]
+        self._plot(imm1)
         
     def _plot(self, imm):
         clear_output(wait=True)
@@ -131,7 +137,7 @@ class PointerAligner():
                                     #timeout
         return images.toNumpyArray()
 
-    def centroid_calculator(self, data):
+    def _centroid_calculator(self, data):
         '''
         Parameters
         ----------
@@ -150,10 +156,9 @@ class PointerAligner():
         #par = centroids.fit_2dgaussian(data)._parameters #uguale a 2dg
         return [x, y]
 
+    def setExposureTime(self, exposureTimeInSeconds):
+        self._idData.exposureTimeInMilliSeconds = exposureTimeInSeconds * 1e3
 
+    def getExposureTime(self):
+        return self._idData.exposureTimeInMilliSeconds * 1e-3
 
-def test():
-    from eris.pointer_aligner import PointerAligner
-    import pysilico
-    camera = pysilico.camera('193.206.155.43', 7100)
-    p = PointerAligner(camera, 'LGS')
